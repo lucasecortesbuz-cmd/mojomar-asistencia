@@ -132,15 +132,21 @@ table th{font-weight:500;}
           <p style="font-size:14px; font-weight:600; margin:0;"><i class="ti ti-clock-hour-4" aria-hidden="true" style="vertical-align:-2px; margin-right:4px;"></i>Actividad de entradas y salidas</p>
         </div>
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-          <label style="font-size:12px; color:var(--color-text-secondary);">Fecha</label>
-          <input type="date" id="act-fecha" style="width:150px;" onchange="adminActividad()" />
-          <label style="font-size:12px; color:var(--color-text-secondary); margin-left:6px;">Empleado</label>
+          <label style="font-size:12px; color:var(--color-text-secondary);">Empleado</label>
           <select id="act-emp" style="flex:1; min-width:140px;" onchange="adminActividad()"><option value="">Todos</option></select>
         </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+          <label style="font-size:12px; color:var(--color-text-secondary);">Desde</label>
+          <input type="date" id="act-desde" style="width:150px;" onchange="adminActividad()" />
+          <label style="font-size:12px; color:var(--color-text-secondary);">Hasta</label>
+          <input type="date" id="act-hasta" style="width:150px;" onchange="adminActividad()" />
+          <button onclick="actReset15()" title="Volver a los últimos 15 días" style="font-size:12px; padding:6px 10px;"><i class="ti ti-refresh" aria-hidden="true"></i> Últimos 15 días</button>
+        </div>
+        <button onclick="exportarActividad()" title="Descarga en Excel lo que estás viendo: el empleado y rango filtrados" style="width:100%; font-size:13px; margin-bottom:10px; background:var(--color-background-success); color:var(--color-text-success); border-color:var(--color-border-success);"><i class="ti ti-file-spreadsheet" aria-hidden="true" style="vertical-align:-2px; margin-right:4px;"></i>Descargar Excel de lo filtrado</button>
         <div id="act-tabla"></div>
       </div>
       <button onclick="adminDetalle()" title="Muestra u oculta el listado completo día por día del mes y filtro seleccionados" style="width:100%; font-size:13px; margin-bottom:0.75rem;"><i class="ti ti-list-details" aria-hidden="true" style="vertical-align:-2px; margin-right:4px;"></i>Ver/ocultar detalle día por día</button>
-      <button onclick="exportarExcel()" title="Descarga un archivo Excel con la asistencia del mes elegido, una hoja por destino" style="width:100%; font-size:13px; margin-bottom:1.25rem; background:var(--color-background-success); color:var(--color-text-success); border-color:var(--color-border-success);"><i class="ti ti-file-spreadsheet" aria-hidden="true" style="vertical-align:-2px; margin-right:4px;"></i>Descargar Excel del mes</button>
+      <button onclick="exportarExcel()" title="Descarga un archivo Excel con la asistencia del mes elegido, una hoja por destino" style="width:100%; font-size:13px; margin-bottom:1.25rem; background:var(--color-background-success); color:var(--color-text-success); border-color:var(--color-border-success);"><i class="ti ti-file-spreadsheet" aria-hidden="true" style="vertical-align:-2px; margin-right:4px;"></i>Descargar Excel del mes (resumen completo)</button>
       <div id="a-detalle" style="display:none; margin-bottom:1.25rem;"></div>
 
       <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1rem 1.25rem;">
@@ -488,7 +494,7 @@ function exportarExcel(){
   const fdest=document.getElementById('a-filtro-dest').value;
   let regs=state.registros.filter(r=>r.fecha.startsWith(mes));
   if(fdest) regs=regs.filter(r=>r.destino===fdest);
-  if(!regs.length){alert('No hay registros para ese mes/filtro.'); return;}
+  if(!regs.length){alert('No hay registros para exportar.\n\nEste Excel usa el MES y el DESTINO elegidos en "Resumen mensual" (arriba), no el filtro de la tabla de actividad.\nRevisá que el mes y el destino tengan datos.'); return;}
   regs=regs.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)||a.fecha.localeCompare(b.fecha));
   const wb=XLSX.utils.book_new();
   const destinos = fdest ? [fdest] : ['Pinamar','Búzios'];
@@ -520,29 +526,76 @@ function adminLlenarSelectAct(){
   });
   sel.innerHTML=html; sel.value=prev;
 }
+function fechaMenos(dias){
+  const d=new Date(); d.setDate(d.getDate()-dias);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function actReset15(){
+  document.getElementById('act-desde').value=fechaMenos(14);
+  document.getElementById('act-hasta').value=hoyStr();
+  document.getElementById('act-emp').value='';
+  adminActividad();
+}
 function adminActividad(){
-  const fEl=document.getElementById('act-fecha');
-  if(fEl && !fEl.value) fEl.value=hoyStr();
+  const dEl=document.getElementById('act-desde'), hEl=document.getElementById('act-hasta');
+  if(dEl && !dEl.value) dEl.value=fechaMenos(14);
+  if(hEl && !hEl.value) hEl.value=hoyStr();
   adminLlenarSelectAct();
-  const fecha=document.getElementById('act-fecha').value;
+  let desde=dEl.value, hasta=hEl.value;
+  if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
   const empId=document.getElementById('act-emp').value;
   const t=document.getElementById('act-tabla');
-  let regs=state.registros.filter(r=>r.fecha===fecha);
+  let regs=state.registros.filter(r=>r.fecha>=desde && r.fecha<=hasta);
   if(empId) regs=regs.filter(r=>r.empId===empId);
-  regs=regs.slice().sort((a,b)=>a.destino.localeCompare(b.destino)||a.nombre.localeCompare(b.nombre));
-  if(!regs.length){ t.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin actividad para esa fecha/empleado.</p>'; return; }
-  t.innerHTML='<table style="width:100%; border-collapse:collapse; font-size:14px;">'+
-    '<tr style="text-align:left; color:var(--color-text-secondary); font-size:13px;"><th style="padding:8px 0;">Empleado</th><th>Destino</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:right;">Estado</th></tr>'+
+  regs=regs.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.nombre.localeCompare(b.nombre));
+  if(!regs.length){ t.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin actividad en ese período.</p>'; return; }
+  const totH=regs.filter(r=>!r.folga).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
+  const diasTrab=regs.filter(r=>!r.folga && r.entrada).length;
+  const folgas=regs.filter(r=>r.folga).length;
+  const resumen='<p style="font-size:12px; color:var(--color-text-secondary); margin:0 0 8px;">'+
+    (empId?'<b>'+(state.empleados.find(e=>e.id===empId)||{}).nombre+'</b> · ':'')+
+    'Del '+fmtFecha(desde)+' al '+fmtFecha(hasta)+' · '+diasTrab+' días · '+totH.toFixed(1)+' h'+(folgas?' · '+folgas+' folgas':'')+'</p>';
+  t.innerHTML=resumen+'<table style="width:100%; border-collapse:collapse; font-size:14px;">'+
+    '<tr style="text-align:left; color:var(--color-text-secondary); font-size:13px;"><th style="padding:8px 0;">Fecha</th>'+(empId?'':'<th>Empleado</th>')+'<th>Destino</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:right;">Estado</th></tr>'+
     regs.map(r=>{
       const estado=r.folga?'<span style="font-size:11px; font-weight:500; padding:2px 8px; border-radius:var(--border-radius-md); background:#F1EFE8; color:#5F5E5A;">FOLGA</span>':
         ((r.entrada&&r.salida)?'<span style="color:var(--color-text-success); font-weight:500;">'+horas(r.entrada,r.salida).toFixed(1)+' h</span>':'<span style="color:var(--color-text-warning); font-weight:500;">incompleto</span>');
       return '<tr style="border-top:0.5px solid var(--color-border-tertiary);">'+
-        '<td style="padding:9px 0;">'+r.nombre+'</td>'+
+        '<td style="padding:9px 0;">'+fmtFecha(r.fecha)+'</td>'+
+        (empId?'':'<td>'+r.nombre+'</td>')+
         '<td><span style="font-size:11px; padding:2px 8px; border-radius:var(--border-radius-md);'+destColor(r.destino)+'">'+r.destino+'</span></td>'+
         '<td style="text-align:center;">'+(r.folga?'—':(r.entrada||'—'))+'</td>'+
         '<td style="text-align:center;">'+(r.folga?'—':(r.salida||'—'))+'</td>'+
         '<td style="text-align:right;">'+estado+'</td></tr>';
     }).join('')+'</table>';
+}
+
+function exportarActividad(){
+  const dEl=document.getElementById('act-desde'), hEl=document.getElementById('act-hasta');
+  let desde=dEl.value||fechaMenos(14), hasta=hEl.value||hoyStr();
+  if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
+  const empId=document.getElementById('act-emp').value;
+  let regs=state.registros.filter(r=>r.fecha>=desde && r.fecha<=hasta);
+  if(empId) regs=regs.filter(r=>r.empId===empId);
+  if(!regs.length){ alert('No hay actividad en ese período/empleado para exportar.'); return; }
+  regs=regs.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)||a.fecha.localeCompare(b.fecha));
+  const filas=regs.map(r=>({
+    'Apellido y Nombre':r.nombre, 'Destino':r.destino, 'Fecha':fmtFecha(r.fecha),
+    'Entrada':r.folga?'':(r.entrada||''), 'Salida':r.folga?'':(r.salida||''),
+    'Horas':r.folga?'':((r.entrada&&r.salida)?Number(horas(r.entrada,r.salida).toFixed(2)):''),
+    'Estado':r.folga?'FOLGA':((r.entrada&&r.salida)?'Completo':'Incompleto'), 'Nota':r.nota||''
+  }));
+  const totH=regs.filter(r=>!r.folga).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
+  const diasTrab=regs.filter(r=>!r.folga && r.entrada).length;
+  filas.push({});
+  filas.push({'Apellido y Nombre':'TOTAL','Fecha':diasTrab+' días','Horas':Number(totH.toFixed(2))});
+  const ws=XLSX.utils.json_to_sheet(filas,{header:['Apellido y Nombre','Destino','Fecha','Entrada','Salida','Horas','Estado','Nota']});
+  ws['!cols']=[{wch:26},{wch:10},{wch:12},{wch:9},{wch:9},{wch:8},{wch:12},{wch:34}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Actividad');
+  const emp=empId?(state.empleados.find(e=>e.id===empId)||{}).nombre:'Todos';
+  const nombreArch='Actividad_'+(emp||'Todos').replace(/[^A-Za-z0-9]/g,'')+'_'+desde+'_a_'+hasta+'.xlsx';
+  XLSX.writeFile(wb,nombreArch);
 }
 function mcard(l,v){return '<div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;"><div style="font-size:13px; color:var(--color-text-secondary);">'+l+'</div><div style="font-size:24px; font-weight:500; margin-top:4px;">'+v+'</div></div>';}
 function vista(v){['login','emp','admin'].forEach(x=>document.getElementById('vista-'+x).style.display=x===v?'block':'none');}
