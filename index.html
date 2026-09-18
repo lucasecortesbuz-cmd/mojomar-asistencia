@@ -574,7 +574,6 @@ function adminActividad(){
     const emp=state.empleados.find(e=>e.id===empId)||{};
     const porFecha={};
     regs.forEach(r=>{ porFecha[fkey(r.fecha)]=r; });
-    console.log('DIAG empId='+empId+' regs='+regs.length+' fechas='+JSON.stringify(regs.map(r=>fkey(r.fecha)+':'+(r.entrada||'-'))));
     filas=[];
     let cur=fkey(hasta);
     const lim=fkey(desde);
