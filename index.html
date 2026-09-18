@@ -193,7 +193,16 @@ async function load(){
 
 async function cargarTodo(){
   const {data:emps,error:e1}=await sb.from('empleados').select('*').order('nombre');
-  const {data:regs,error:e2}=await sb.from('registros').select('*').range(0,99999);
+  let regs=[]; let e2=null;
+  { let desde=0; const paso=1000;
+    while(true){
+      const {data:parte,error:ep}=await sb.from('registros').select('*').order('fecha',{ascending:false}).range(desde,desde+paso-1);
+      if(ep){ e2=ep; break; }
+      if(parte && parte.length){ regs=regs.concat(parte); }
+      if(!parte || parte.length<paso) break;
+      desde+=paso;
+    }
+  }
   const {data:cfg}=await sb.from('config').select('*').eq('clave','adminPin').maybeSingle();
   if(e1||e2) throw (e1||e2);
   state.empleados=(emps||[]).map(x=>({id:x.id, nombre:x.nombre, pin:x.pin||'', destino:x.destino, creado:x.creado}));
