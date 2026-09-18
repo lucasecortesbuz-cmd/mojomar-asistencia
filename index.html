@@ -193,7 +193,7 @@ async function load(){
 
 async function cargarTodo(){
   const {data:emps,error:e1}=await sb.from('empleados').select('*').order('nombre');
-  const {data:regs,error:e2}=await sb.from('registros').select('*');
+  const {data:regs,error:e2}=await sb.from('registros').select('*').range(0,99999);
   const {data:cfg}=await sb.from('config').select('*').eq('clave','adminPin').maybeSingle();
   if(e1||e2) throw (e1||e2);
   state.empleados=(emps||[]).map(x=>({id:x.id, nombre:x.nombre, pin:x.pin||'', destino:x.destino, creado:x.creado}));
