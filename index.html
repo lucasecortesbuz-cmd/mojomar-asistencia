@@ -163,8 +163,8 @@ table th{font-weight:500;}
 </div>
 
 <script>
-/* VERSION_FIX_FILTRO_2026-09-18 */
-console.log("MOJOMAR version: FIX_FILTRO 2026-09-18");
+/* VERSION_LIMITE_1000_ARREGLADO */
+console.log("MOJOMAR version: LIMITE-ARREGLADO v3");
 let sb=null;
 let state={adminPin:'9999', empleados:[], registros:[]};
 let sesion=null;
@@ -440,7 +440,6 @@ function adminResumen(){
       '<td style="padding:10px 0;">'+e.nombre+'</td>'+
       '<td><span style="font-size:11px; padding:2px 8px; border-radius:var(--border-radius-md);'+destColor(e.destino)+'">'+e.destino+'</span></td>'+
       '<td style="text-align:center;">'+e.dias+'</td>'+
-      '<td style="text-align:center; color:var(--color-text-secondary);">'+e.folgas+'</td>'+
       '<td style="text-align:right; font-weight:500;">'+e.h.toFixed(1)+'</td></tr>';}).join('')+'</table>';
 }
 let detalleAbierto=false;
