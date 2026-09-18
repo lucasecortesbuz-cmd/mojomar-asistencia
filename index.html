@@ -170,7 +170,7 @@ let destTab='Pinamar';
 const destColor=d=>d==='Pinamar'?'background:#E6F1FB; color:#0C447C;':'background:#E1F5EE; color:#0F6E56;';
 const hoyStr=()=>{const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const ahoraHM=()=>{const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-const fmtFecha=f=>{const p=f.split('-'); return p[2]+'/'+p[1]+'/'+p[0];};
+const fmtFecha=f=>{const p=String(f).slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0];};
 const setEstado=(txt,col)=>{const e=document.getElementById('estado-nube'); e.textContent=txt; e.style.color=col;};
 
 async function load(){
@@ -526,6 +526,7 @@ function adminLlenarSelectAct(){
   });
   sel.innerHTML=html; sel.value=prev;
 }
+function fkey(f){ return (f==null?"":String(f)).slice(0,10); }
 function fechaMenos(dias){
   const d=new Date(); d.setDate(d.getDate()-dias);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -545,9 +546,9 @@ function adminActividad(){
   if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
   const empId=document.getElementById('act-emp').value;
   const t=document.getElementById('act-tabla');
-  let regs=state.registros.filter(r=>r.fecha>=desde && r.fecha<=hasta);
+  let regs=state.registros.filter(r=>fkey(r.fecha)>=fkey(desde) && fkey(r.fecha)<=fkey(hasta));
   if(empId) regs=regs.filter(r=>r.empId===empId);
-  regs=regs.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.nombre.localeCompare(b.nombre));
+  regs=regs.slice().sort((a,b)=>fkey(b.fecha).localeCompare(fkey(a.fecha))||a.nombre.localeCompare(b.nombre));
   if(!regs.length){ t.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin actividad en ese período.</p>'; return; }
   const totH=regs.filter(r=>!r.folga).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
   const diasTrab=regs.filter(r=>!r.folga && r.entrada).length;
@@ -575,7 +576,7 @@ function exportarActividad(){
   let desde=dEl.value||fechaMenos(14), hasta=hEl.value||hoyStr();
   if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
   const empId=document.getElementById('act-emp').value;
-  let regs=state.registros.filter(r=>r.fecha>=desde && r.fecha<=hasta);
+  let regs=state.registros.filter(r=>fkey(r.fecha)>=fkey(desde) && fkey(r.fecha)<=fkey(hasta));
   if(empId) regs=regs.filter(r=>r.empId===empId);
   if(!regs.length){ alert('No hay actividad en ese período/empleado para exportar.'); return; }
   regs=regs.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)||a.fecha.localeCompare(b.fecha));
