@@ -195,7 +195,7 @@ async function cargarTodo(){
   const {data:cfg}=await sb.from('config').select('*').eq('clave','adminPin').maybeSingle();
   if(e1||e2) throw (e1||e2);
   state.empleados=(emps||[]).map(x=>({id:x.id, nombre:x.nombre, pin:x.pin||'', destino:x.destino, creado:x.creado}));
-  state.registros=(regs||[]).map(x=>({empId:x.emp_id, nombre:x.nombre, destino:x.destino, fecha:x.fecha, entrada:x.entrada, salida:x.salida, folga:x.folga, nota:x.nota||''}));
+  state.registros=(regs||[]).map(x=>({empId:x.emp_id, nombre:x.nombre, destino:x.destino, fecha:x.fecha, entrada:x.entrada, salida:x.salida, folga:(x.entrada||x.salida)?false:x.folga, nota:x.nota||''}));
   state.adminPin=(cfg&&cfg.valor)||'9999';
   await cerrarFolgas();
 }
