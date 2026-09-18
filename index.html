@@ -528,7 +528,9 @@ function adminLlenarSelectAct(){
     const lista=state.empleados.filter(e=>e.destino===dest);
     if(lista.length) html+='<optgroup label="'+dest+'">'+lista.map(e=>'<option value="'+e.id+'">'+e.nombre+'</option>').join('')+'</optgroup>';
   });
-  sel.innerHTML=html; sel.value=prev;
+  sel.innerHTML=html;
+  // restaurar selección previa si todavía existe
+  if(prev && state.empleados.some(e=>e.id===prev)) sel.value=prev; else sel.value='';
 }
 function fkey(f){ return (f==null?"":String(f)).slice(0,10); }
 function fechaMenos(dias){
@@ -545,7 +547,8 @@ function adminActividad(){
   const dEl=document.getElementById('act-desde'), hEl=document.getElementById('act-hasta');
   if(dEl && !dEl.value) dEl.value=fechaMenos(14);
   if(hEl && !hEl.value) hEl.value=hoyStr();
-  adminLlenarSelectAct();
+  const selEmp=document.getElementById('act-emp');
+  if(selEmp && selEmp.querySelectorAll('option').length<=1 && state.empleados.length) adminLlenarSelectAct();
   let desde=dEl.value, hasta=hEl.value;
   if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
   const empId=document.getElementById('act-emp').value;
