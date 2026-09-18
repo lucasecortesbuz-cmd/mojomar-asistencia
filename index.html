@@ -208,22 +208,9 @@ async function refrescar(){
 }
 
 async function cerrarFolgas(){
-  const hoy=hoyStr();
-  const nuevos=[];
-  state.empleados.forEach(emp=>{
-    if(!emp.creado) return;
-    let cur=emp.creado;
-    while(cur<hoy){
-      const existe=state.registros.find(r=>r.empId===emp.id && r.fecha===cur);
-      if(!existe){
-        const reg={empId:emp.id, nombre:emp.nombre, destino:emp.destino, fecha:cur, entrada:null, salida:null, folga:true, nota:''};
-        state.registros.push(reg); nuevos.push(reg);
-      }
-      const dt=new Date(cur+'T12:00:00'); dt.setDate(dt.getDate()+1);
-      cur=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-    }
-  });
-  for(const r of nuevos){ await upsertRegistro(r); }
+  // Desactivado: ya no se generan FOLGA automáticas.
+  // Los días sin fichaje quedan en blanco y el administrador decide qué fueron.
+  return;
 }
 
 async function upsertRegistro(r){
@@ -337,21 +324,15 @@ async function guardarNota(){
 }
 function empRender(){
   const mes=document.getElementById('e-mes').value;
-  const regs=state.registros.filter(r=>r.empId===sesion.emp.id && r.fecha.startsWith(mes)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  const trab=regs.filter(r=>!r.folga);
-  const folgas=regs.filter(r=>r.folga).length;
+  const regs=state.registros.filter(r=>r.empId===sesion.emp.id && r.fecha.startsWith(mes) && (r.entrada||r.salida)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const trab=regs.filter(r=>r.entrada||r.salida);
   const tot=trab.reduce((s,r)=>s+horas(r.entrada,r.salida),0);
-  document.getElementById('e-cards').innerHTML=mcard('Días trabajados',trab.length)+mcard('Horas',tot.toFixed(1))+mcard('Folgas',folgas);
+  document.getElementById('e-cards').innerHTML=mcard('Días con fichaje',trab.length)+mcard('Horas',tot.toFixed(1));
   const l=document.getElementById('e-lista');
   if(!regs.length){l.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin registros este mes.</p>'; return;}
   l.innerHTML=regs.map(r=>filaReg(r)).join('');
 }
 function filaReg(r){
-  if(r.folga){
-    return '<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); margin-bottom:6px; background:var(--color-background-secondary);">'+
-      '<span style="font-size:13px; color:var(--color-text-secondary);">'+fmtFecha(r.fecha)+'</span>'+
-      '<span style="font-size:12px; font-weight:500; padding:2px 10px; border-radius:var(--border-radius-md); background:#F1EFE8; color:#5F5E5A;">FOLGA</span></div>';
-  }
   const h=(r.entrada&&r.salida)?horas(r.entrada,r.salida).toFixed(1)+' h':'incompleto';
   const notaHtml=r.nota?'<div style="font-size:12px; color:var(--color-text-secondary); margin-top:4px; font-style:italic;"><i class="ti ti-note" style="font-size:12px;"></i> '+r.nota+'</div>':'';
   return '<div style="padding:8px 12px; border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); margin-bottom:6px;">'+
@@ -442,19 +423,17 @@ function getResumenRegs(){
   return regs;
 }
 function adminResumen(){
-  const regs=getResumenRegs();
-  const trab=regs.filter(r=>!r.folga);
-  const tot=trab.reduce((s,r)=>s+horas(r.entrada,r.salida),0);
-  const activos=new Set(trab.map(r=>r.empId)).size;
-  const folgas=regs.filter(r=>r.folga).length;
-  document.getElementById('a-cards').innerHTML=mcard('Días trabajados',trab.length)+mcard('Horas totales',tot.toFixed(1))+mcard('Empleados activos',activos)+mcard('Folgas',folgas);
+  const regs=getResumenRegs().filter(r=>r.entrada||r.salida);
+  const tot=regs.reduce((s,r)=>s+horas(r.entrada,r.salida),0);
+  const activos=new Set(regs.map(r=>r.empId)).size;
+  document.getElementById('a-cards').innerHTML=mcard('Días con fichaje',regs.length)+mcard('Horas totales',tot.toFixed(1))+mcard('Empleados activos',activos);
   const porEmp={};
-  regs.forEach(r=>{if(!porEmp[r.empId])porEmp[r.empId]={nombre:r.nombre,destino:r.destino,dias:0,h:0,folgas:0}; if(r.folga){porEmp[r.empId].folgas++;}else{porEmp[r.empId].dias++; porEmp[r.empId].h+=horas(r.entrada,r.salida);}});
+  regs.forEach(r=>{if(!porEmp[r.empId])porEmp[r.empId]={nombre:r.nombre,destino:r.destino,dias:0,h:0}; porEmp[r.empId].dias++; porEmp[r.empId].h+=horas(r.entrada,r.salida);});
   const ids=Object.keys(porEmp).sort((a,b)=>porEmp[a].nombre.localeCompare(porEmp[b].nombre));
   const t=document.getElementById('a-tabla');
   if(!ids.length){t.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin datos para este filtro.</p>'; return;}
   t.innerHTML='<table style="width:100%; border-collapse:collapse; font-size:14px;">'+
-    '<tr style="text-align:left; color:var(--color-text-secondary); font-size:13px;"><th style="padding:8px 0;">Apellido y Nombre</th><th>Destino</th><th style="text-align:center;">Días</th><th style="text-align:center;">Folgas</th><th style="text-align:right;">Horas</th></tr>'+
+    '<tr style="text-align:left; color:var(--color-text-secondary); font-size:13px;"><th style="padding:8px 0;">Apellido y Nombre</th><th>Destino</th><th style="text-align:center;">Días</th><th style="text-align:right;">Horas</th></tr>'+
     ids.map(id=>{const e=porEmp[id]; return '<tr style="border-top:0.5px solid var(--color-border-tertiary);">'+
       '<td style="padding:10px 0;">'+e.nombre+'</td>'+
       '<td><span style="font-size:11px; padding:2px 8px; border-radius:var(--border-radius-md);'+destColor(e.destino)+'">'+e.destino+'</span></td>'+
@@ -466,11 +445,11 @@ let detalleAbierto=false;
 function adminDetalle(){detalleAbierto=!detalleAbierto; document.getElementById('a-detalle').style.display=detalleAbierto?'block':'none'; if(detalleAbierto) adminDetalleRender();}
 function adminDetalleRender(){
   if(!detalleAbierto) return;
-  const regs=getResumenRegs().slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.nombre.localeCompare(b.nombre));
+  const regs=getResumenRegs().filter(r=>r.entrada||r.salida).slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.nombre.localeCompare(b.nombre));
   const d=document.getElementById('a-detalle');
   if(!regs.length){d.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin registros.</p>'; return;}
   d.innerHTML=regs.map(r=>{
-    const tag=r.folga?'<span style="font-size:11px; font-weight:500; padding:2px 10px; border-radius:var(--border-radius-md); background:#F1EFE8; color:#5F5E5A;">FOLGA</span>':
+    const tag=!(r.entrada||r.salida)?'<span style="font-size:12px; color:var(--color-text-tertiary);">— sin fichaje —</span>':
       '<span style="font-size:13px; font-weight:500;'+((!r.entrada||!r.salida)?'color:var(--color-text-warning);':'')+'">'+(r.entrada||'—')+' → '+(r.salida||'—')+((r.entrada&&r.salida)?' ('+horas(r.entrada,r.salida).toFixed(1)+'h)':'')+'</span>';
     const nota=r.nota?'<div style="font-size:12px; color:var(--color-text-secondary); font-style:italic; margin-top:3px;"><i class="ti ti-note" style="font-size:12px;"></i> '+r.nota+'</div>':'';
     return '<div style="padding:8px 12px; border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); margin-bottom:6px;">'+
@@ -488,13 +467,38 @@ async function adminCambiarPin(){
   }catch(e){ msg.style.color='var(--color-text-danger)'; msg.textContent='No se pudo guardar el PIN.'; }
 }
 
+function exportarActividad(){
+  const dEl=document.getElementById('act-desde'), hEl=document.getElementById('act-hasta');
+  let desde=dEl.value||fechaMenos(14), hasta=hEl.value||hoyStr();
+  if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
+  const empId=document.getElementById('act-emp').value;
+  let regs=state.registros.filter(r=>fkey(r.fecha)>=fkey(desde) && fkey(r.fecha)<=fkey(hasta) && (r.entrada||r.salida));
+  if(empId) regs=regs.filter(r=>r.empId===empId);
+  if(!regs.length){ alert('No hay fichajes en ese período/empleado para exportar.'); return; }
+  regs=regs.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)||fkey(a.fecha).localeCompare(fkey(b.fecha)));
+  const filas=regs.map(r=>({
+    'Apellido y Nombre':r.nombre, 'Destino':r.destino, 'Fecha':fmtFecha(r.fecha),
+    'Entrada':r.entrada||'', 'Salida':r.salida||'',
+    'Horas':(r.entrada&&r.salida)?Number(horas(r.entrada,r.salida).toFixed(2)):'',
+    'Estado':(r.entrada&&r.salida)?'Completo':'Incompleto', 'Nota':r.nota||''
+  }));
+  const totH=regs.filter(r=>r.entrada&&r.salida).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
+  filas.push({});
+  filas.push({'Apellido y Nombre':'TOTAL','Fecha':regs.length+' días','Horas':Number(totH.toFixed(2))});
+  const ws=XLSX.utils.json_to_sheet(filas,{header:['Apellido y Nombre','Destino','Fecha','Entrada','Salida','Horas','Estado','Nota']});
+  ws['!cols']=[{wch:26},{wch:10},{wch:12},{wch:9},{wch:9},{wch:8},{wch:12},{wch:34}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Actividad');
+  const emp=empId?(state.empleados.find(e=>e.id===empId)||{}).nombre:'Todos';
+  XLSX.writeFile(wb,'Actividad_'+(emp||'Todos').replace(/[^A-Za-z0-9]/g,'')+'_'+desde+'_a_'+hasta+'.xlsx');
+}
 function exportarExcel(){
   const mes=document.getElementById('a-mes').value;
   if(!mes){alert('Elegí un mes.'); return;}
   const fdest=document.getElementById('a-filtro-dest').value;
-  let regs=state.registros.filter(r=>r.fecha.startsWith(mes));
+  let regs=state.registros.filter(r=>r.fecha.startsWith(mes) && (r.entrada||r.salida));
   if(fdest) regs=regs.filter(r=>r.destino===fdest);
-  if(!regs.length){alert('No hay registros para exportar.\n\nEste Excel usa el MES y el DESTINO elegidos en "Resumen mensual" (arriba), no el filtro de la tabla de actividad.\nRevisá que el mes y el destino tengan datos.'); return;}
+  if(!regs.length){alert('No hay fichajes para exportar.\n\nEste Excel usa el MES y el DESTINO elegidos en "Resumen mensual" (arriba), no el filtro de la tabla de actividad.\nRevisá que el mes y el destino tengan datos.'); return;}
   regs=regs.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)||a.fecha.localeCompare(b.fecha));
   const wb=XLSX.utils.book_new();
   const destinos = fdest ? [fdest] : ['Pinamar','Búzios'];
@@ -503,11 +507,11 @@ function exportarExcel(){
     if(!dr.length) return;
     const filas=dr.map(r=>({
       'Apellido y Nombre':r.nombre, 'Destino':r.destino, 'Fecha':fmtFecha(r.fecha),
-      'Entrada':r.folga?'':(r.entrada||''), 'Salida':r.folga?'':(r.salida||''),
-      'Horas':r.folga?'':((r.entrada&&r.salida)?Number(horas(r.entrada,r.salida).toFixed(2)):''),
-      'Estado':r.folga?'FOLGA':((r.entrada&&r.salida)?'Completo':'Incompleto'), 'Nota':r.nota||''
+      'Entrada':r.entrada||'', 'Salida':r.salida||'',
+      'Horas':(r.entrada&&r.salida)?Number(horas(r.entrada,r.salida).toFixed(2)):'',
+      'Estado':(r.entrada&&r.salida)?'Completo':((r.entrada||r.salida)?'Incompleto':'Sin fichaje'), 'Nota':r.nota||''
     }));
-    const totH=dr.filter(r=>!r.folga).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
+    const totH=dr.filter(r=>r.entrada&&r.salida).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
     filas.push({}); filas.push({'Apellido y Nombre':'TOTAL '+dest,'Horas':Number(totH.toFixed(2))});
     const ws=XLSX.utils.json_to_sheet(filas,{header:['Apellido y Nombre','Destino','Fecha','Entrada','Salida','Horas','Estado','Nota']});
     ws['!cols']=[{wch:26},{wch:10},{wch:12},{wch:9},{wch:9},{wch:8},{wch:12},{wch:34}];
@@ -546,57 +550,56 @@ function adminActividad(){
   if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
   const empId=document.getElementById('act-emp').value;
   const t=document.getElementById('act-tabla');
+
+  // Registros reales en el rango
   let regs=state.registros.filter(r=>fkey(r.fecha)>=fkey(desde) && fkey(r.fecha)<=fkey(hasta));
   if(empId) regs=regs.filter(r=>r.empId===empId);
-  regs=regs.slice().sort((a,b)=>fkey(b.fecha).localeCompare(fkey(a.fecha))||a.nombre.localeCompare(b.nombre));
-  if(!regs.length){ t.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin actividad en ese período.</p>'; return; }
-  const totH=regs.filter(r=>!r.folga).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
-  const diasTrab=regs.filter(r=>!r.folga && r.entrada).length;
-  const folgas=regs.filter(r=>r.folga).length;
+
+  let filas;
+  if(empId){
+    // Con empleado elegido: mostrar TODOS los días del rango (los sin fichaje en blanco)
+    const emp=state.empleados.find(e=>e.id===empId)||{};
+    const porFecha={};
+    regs.forEach(r=>{ porFecha[fkey(r.fecha)]=r; });
+    filas=[];
+    let cur=fkey(hasta);
+    const lim=fkey(desde);
+    while(cur>=lim){
+      const r=porFecha[cur];
+      if(r){ filas.push(r); }
+      else { filas.push({empId:empId, nombre:emp.nombre, destino:emp.destino, fecha:cur, entrada:null, salida:null, folga:false, nota:'', _vacio:true}); }
+      const dt=new Date(cur+'T12:00:00'); dt.setDate(dt.getDate()-1);
+      cur=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+    }
+  } else {
+    // Sin empleado: solo los registros que existen
+    filas=regs.slice().sort((a,b)=>fkey(b.fecha).localeCompare(fkey(a.fecha))||a.nombre.localeCompare(b.nombre));
+  }
+
+  if(!filas.length){ t.innerHTML='<p style="font-size:13px;color:var(--color-text-tertiary);">Sin datos en ese período.</p>'; return; }
+
+  const conFichaje=filas.filter(r=>r.entrada||r.salida);
+  const totH=conFichaje.filter(r=>r.entrada&&r.salida).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
+  const diasConEntrada=conFichaje.filter(r=>r.entrada).length;
+  const sinFichaje=filas.filter(r=>!(r.entrada||r.salida)).length;
   const resumen='<p style="font-size:12px; color:var(--color-text-secondary); margin:0 0 8px;">'+
     (empId?'<b>'+(state.empleados.find(e=>e.id===empId)||{}).nombre+'</b> · ':'')+
-    'Del '+fmtFecha(desde)+' al '+fmtFecha(hasta)+' · '+diasTrab+' días · '+totH.toFixed(1)+' h'+(folgas?' · '+folgas+' folgas':'')+'</p>';
+    'Del '+fmtFecha(desde)+' al '+fmtFecha(hasta)+' · '+diasConEntrada+' días con entrada · '+totH.toFixed(1)+' h'+(empId?' · '+sinFichaje+' días sin fichaje':'')+'</p>';
+
   t.innerHTML=resumen+'<table style="width:100%; border-collapse:collapse; font-size:14px;">'+
     '<tr style="text-align:left; color:var(--color-text-secondary); font-size:13px;"><th style="padding:8px 0;">Fecha</th>'+(empId?'':'<th>Empleado</th>')+'<th>Destino</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:right;">Estado</th></tr>'+
-    regs.map(r=>{
-      const estado=r.folga?'<span style="font-size:11px; font-weight:500; padding:2px 8px; border-radius:var(--border-radius-md); background:#F1EFE8; color:#5F5E5A;">FOLGA</span>':
+    filas.map(r=>{
+      const tieneFichaje=r.entrada||r.salida;
+      const estado=!tieneFichaje?'<span style="font-size:11px; color:var(--color-text-tertiary);">—</span>':
         ((r.entrada&&r.salida)?'<span style="color:var(--color-text-success); font-weight:500;">'+horas(r.entrada,r.salida).toFixed(1)+' h</span>':'<span style="color:var(--color-text-warning); font-weight:500;">incompleto</span>');
       return '<tr style="border-top:0.5px solid var(--color-border-tertiary);">'+
         '<td style="padding:9px 0;">'+fmtFecha(r.fecha)+'</td>'+
         (empId?'':'<td>'+r.nombre+'</td>')+
         '<td><span style="font-size:11px; padding:2px 8px; border-radius:var(--border-radius-md);'+destColor(r.destino)+'">'+r.destino+'</span></td>'+
-        '<td style="text-align:center;">'+(r.folga?'—':(r.entrada||'—'))+'</td>'+
-        '<td style="text-align:center;">'+(r.folga?'—':(r.salida||'—'))+'</td>'+
+        '<td style="text-align:center;">'+(r.entrada||'—')+'</td>'+
+        '<td style="text-align:center;">'+(r.salida||'—')+'</td>'+
         '<td style="text-align:right;">'+estado+'</td></tr>';
     }).join('')+'</table>';
-}
-
-function exportarActividad(){
-  const dEl=document.getElementById('act-desde'), hEl=document.getElementById('act-hasta');
-  let desde=dEl.value||fechaMenos(14), hasta=hEl.value||hoyStr();
-  if(desde>hasta){ const t=desde; desde=hasta; hasta=t; }
-  const empId=document.getElementById('act-emp').value;
-  let regs=state.registros.filter(r=>fkey(r.fecha)>=fkey(desde) && fkey(r.fecha)<=fkey(hasta));
-  if(empId) regs=regs.filter(r=>r.empId===empId);
-  if(!regs.length){ alert('No hay actividad en ese período/empleado para exportar.'); return; }
-  regs=regs.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)||a.fecha.localeCompare(b.fecha));
-  const filas=regs.map(r=>({
-    'Apellido y Nombre':r.nombre, 'Destino':r.destino, 'Fecha':fmtFecha(r.fecha),
-    'Entrada':r.folga?'':(r.entrada||''), 'Salida':r.folga?'':(r.salida||''),
-    'Horas':r.folga?'':((r.entrada&&r.salida)?Number(horas(r.entrada,r.salida).toFixed(2)):''),
-    'Estado':r.folga?'FOLGA':((r.entrada&&r.salida)?'Completo':'Incompleto'), 'Nota':r.nota||''
-  }));
-  const totH=regs.filter(r=>!r.folga).reduce((s,r)=>s+horas(r.entrada,r.salida),0);
-  const diasTrab=regs.filter(r=>!r.folga && r.entrada).length;
-  filas.push({});
-  filas.push({'Apellido y Nombre':'TOTAL','Fecha':diasTrab+' días','Horas':Number(totH.toFixed(2))});
-  const ws=XLSX.utils.json_to_sheet(filas,{header:['Apellido y Nombre','Destino','Fecha','Entrada','Salida','Horas','Estado','Nota']});
-  ws['!cols']=[{wch:26},{wch:10},{wch:12},{wch:9},{wch:9},{wch:8},{wch:12},{wch:34}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Actividad');
-  const emp=empId?(state.empleados.find(e=>e.id===empId)||{}).nombre:'Todos';
-  const nombreArch='Actividad_'+(emp||'Todos').replace(/[^A-Za-z0-9]/g,'')+'_'+desde+'_a_'+hasta+'.xlsx';
-  XLSX.writeFile(wb,nombreArch);
 }
 function mcard(l,v){return '<div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:1rem;"><div style="font-size:13px; color:var(--color-text-secondary);">'+l+'</div><div style="font-size:24px; font-weight:500; margin-top:4px;">'+v+'</div></div>';}
 function vista(v){['login','emp','admin'].forEach(x=>document.getElementById('vista-'+x).style.display=x===v?'block':'none');}
